@@ -45,6 +45,19 @@ def jahr_label(j: int) -> str:
     return f"{j}e" if j >= 2025 else str(j)
 
 
+Q_NATO = "https://www.nato.int/content/dam/nato/webready/documents/finance/def-exp-2026-en.pdf"
+Q_NATO_T1 = f"[NATO: Defence Expenditure of NATO Countries 2026, Tabelle 1 (Kernausgaben, nominal in Landeswährung)]({Q_NATO})"
+Q_NATO_T3 = f"[NATO: Defence Expenditure of NATO Countries 2026, Tabelle 3 (Anteil am realen BIP und reale Veränderung zum Vorjahr)]({Q_NATO})"
+Q_SIPRI = ("[SIPRI Military Expenditure Database, Datensatz 1949–2025, Version 1.2 (Excel)]"
+           "(https://www.sipri.org/sites/default/files/SIPRI-Milex-data-1949-2025_v1.2.xlsx)")
+
+
+def quellen(*eintraege: str) -> None:
+    """Ausklappbare Quellenangabe unter einem Diagramm."""
+    with st.expander("Quellen"):
+        st.markdown("\n".join(f"- {e}" for e in eintraege))
+
+
 @st.cache_data
 def lade_daten():
     g = pd.read_csv(DATA / "germany.csv")
@@ -341,35 +354,51 @@ with tabs[4]:
     ab["abw"] = (ab.lokal_eur / ab.nominal_eur - 1) * 100
     A = ab.set_index("jahr")
     summe = lambda col: A.loc[2023:2025, col].sum()
+    na = g[["jahr", "nominal_eur", "anteil_bip", "real_aend"]]  # NATO inklusive Schätzung 2026
     c1, c2 = st.columns(2)
     with c1:
         st.markdown("**Ausgaben laut NATO und SIPRI, nominal in Mrd. €**")
         st.caption(f"Von 2014 bis 2024 liegt SIPRI unter der NATO, zuletzt bei {fde(A.loc[2024, 'abw'])} %. 2025 kehrt sich das um "
                    f"({fde(A.loc[2025, 'abw'])} %). Über 2023–2025 summiert beträgt der Abstand "
-                   f"{fde((summe('lokal_eur') / summe('nominal_eur') - 1) * 100)} %.")
+                   f"{fde((summe('lokal_eur') / summe('nominal_eur') - 1) * 100)} %. Für 2026 gibt es nur die NATO-Schätzung.")
         fig = go.Figure()
-        fig.add_scatter(x=ab.jahr, y=ab.nominal_eur / 1e3, name="NATO", line=dict(color=FARBEN["ausruestung"], width=2.5))
-        fig.add_scatter(x=ab.jahr, y=ab.lokal_eur / 1e3, name="SIPRI", line=dict(color=FARBEN["personal"], width=2.5))
+        fig.add_scatter(x=na.jahr, y=na.nominal_eur / 1e3, name="NATO", mode="lines+markers+text",
+                        text=[fde(x / 1e3, 1) for x in na.nominal_eur], textposition="top center",
+                        textfont=dict(size=10, color=FARBEN["ausruestung"]), line=dict(color=FARBEN["ausruestung"], width=2.5))
+        fig.add_scatter(x=ab.jahr, y=ab.lokal_eur / 1e3, name="SIPRI", mode="lines+markers+text",
+                        text=[fde(x / 1e3, 1) for x in ab.lokal_eur], textposition="bottom center",
+                        textfont=dict(size=10, color=FARBEN["personal"]), line=dict(color=FARBEN["personal"], width=2.5))
         fig.update_traces(hovertemplate="%{y:.1f} Mrd. €")
-        st.plotly_chart(layout(fig, y_titel="Mrd. €", schaetzung=False).update_xaxes(dtick=2), width="stretch")
+        st.plotly_chart(layout(fig, 440, "Mrd. €").update_yaxes(range=[0, na.nominal_eur.max() / 1e3 * 1.15]), width="stretch")
+        quellen(Q_NATO_T1, Q_SIPRI)
     with c2:
         st.markdown("**Reale Veränderung zum Vorjahr, in %**")
-        st.caption(f"2025 meldet SIPRI {fde(A.loc[2025, 'sipri_real'])} % und die NATO-Schätzung {fde(A.loc[2025, 'real_aend'])} %.")
+        st.caption(f"2025 meldet SIPRI {fde(A.loc[2025, 'sipri_real'])} % und die NATO-Schätzung {fde(A.loc[2025, 'real_aend'])} %. "
+                   f"Für 2026 schätzt die NATO {fde(J.loc[2026, 'real_aend'])} %.")
         fig = go.Figure()
-        fig.add_bar(x=ab.jahr, y=ab.real_aend, name="NATO", marker_color=FARBEN["ausruestung"], hovertemplate="%{y:.1f} %")
-        fig.add_bar(x=ab.jahr, y=ab.sipri_real, name="SIPRI", marker_color=FARBEN["personal"], hovertemplate="%{y:.1f} %")
-        st.plotly_chart(layout(fig, y_titel="%", schaetzung=False).update_xaxes(dtick=2), width="stretch")
+        fig.add_bar(x=na.jahr, y=na.real_aend, name="NATO", marker_color=FARBEN["ausruestung"], hovertemplate="%{y:.1f} %",
+                    text=[fde(x, 1) for x in na.real_aend], textposition="outside", textfont=dict(size=9))
+        fig.add_bar(x=ab.jahr, y=ab.sipri_real, name="SIPRI", marker_color=FARBEN["personal"], hovertemplate="%{y:.1f} %",
+                    text=[fde(x, 1) for x in ab.sipri_real], textposition="outside", textfont=dict(size=9))
+        fig.update_layout(uniformtext=dict(minsize=8, mode="show"))
+        st.plotly_chart(layout(fig, 440, "%"), width="stretch")
+        quellen(Q_NATO_T3, Q_SIPRI, "Die SIPRI-Veränderung ist aus den Werten in konstanten US-$ (Preise von 2024) berechnet.")
     c3, c4 = st.columns(2)
     with c3:
         st.markdown("**Anteil am BIP laut NATO und SIPRI**")
         st.caption(f"Die NATO erreicht 2024 genau {fde(ZIEL_ALT, 2)} %, SIPRI überschreitet die Marke erst 2025 und nennt "
-                   f"für 2024 {fde(A.loc[2024, 'anteil_bip_pct'], 2)} %.")
+                   f"für 2024 {fde(A.loc[2024, 'anteil_bip_pct'], 2)} %. 2026 schätzt die NATO {fde(J.loc[2026, 'anteil_bip'], 2)} %.")
         fig = go.Figure()
-        fig.add_scatter(x=ab.jahr, y=ab.anteil_bip, name="NATO", line=dict(color=FARBEN["ausruestung"], width=2.5))
-        fig.add_scatter(x=ab.jahr, y=ab.anteil_bip_pct, name="SIPRI", line=dict(color=FARBEN["personal"], width=2.5))
+        fig.add_scatter(x=na.jahr, y=na.anteil_bip, name="NATO", mode="lines+markers+text",
+                        text=[fde(x, 2) for x in na.anteil_bip], textposition="top center",
+                        textfont=dict(size=10, color=FARBEN["ausruestung"]), line=dict(color=FARBEN["ausruestung"], width=2.5))
+        fig.add_scatter(x=ab.jahr, y=ab.anteil_bip_pct, name="SIPRI", mode="lines+markers+text",
+                        text=[fde(x, 2) for x in ab.anteil_bip_pct], textposition="bottom center",
+                        textfont=dict(size=10, color=FARBEN["personal"]), line=dict(color=FARBEN["personal"], width=2.5))
         fig.add_hline(y=ZIEL_ALT, line_dash="dot", line_color="#777")
         fig.update_traces(hovertemplate="%{y:.2f} %")
-        st.plotly_chart(layout(fig, y_titel="% des BIP", schaetzung=False).update_xaxes(dtick=2), width="stretch")
+        st.plotly_chart(layout(fig, 440, "% des BIP").update_yaxes(range=[0.8, na.anteil_bip.max() * 1.15]), width="stretch")
+        quellen(Q_NATO_T3, Q_SIPRI)
     with c4:
         st.markdown("**Warum der reale Anstieg 2014–2025 abweicht**")
         nomN, nomS = A.loc[2025, "nominal_eur"] / A.loc[2014, "nominal_eur"], A.loc[2025, "lokal_eur"] / A.loc[2014, "lokal_eur"]
@@ -382,10 +411,12 @@ with tabs[4]:
         st.caption("SIPRI wächst stärker: Die Ausgaben starten niedriger, enden 2025 höher, und die Preisbereinigung fällt "
                    f"geringer aus. Deutschland weicht beim BIP-Anteil 2025 nur um {fde(de_gap, 2)} Prozentpunkte ab, der Median "
                    f"aller Länder liegt bei {fde(gaps.median(), 2)}. Beide Quellen haben eigene Abgrenzungen und Preisbasen "
-                   "(NATO: 2021, SIPRI: 2024); reale Werte werden deshalb nur über Faktoren verglichen.")
+                   "(NATO: 2021, SIPRI: 2024); reale Werte werden deshalb nur über Faktoren verglichen. "
+                   "Der Vergleich endet 2025, weil SIPRI für 2026 noch keine Daten hat.")
+        quellen(Q_NATO_T1, Q_NATO_T3, Q_SIPRI, "Die Faktoren sind eigene Berechnungen aus beiden Datensätzen.")
     st.markdown("**Abweichung SIPRI minus NATO beim BIP-Anteil 2025, in Prozentpunkten**")
     st.caption("Bei großen Abweichungen wie Luxemburg oder Litauen sollte man vor dem Zitieren die Quellenangaben prüfen. "
-               "Die NATO-Werte für 2025 sind Schätzungen.")
+               "Die NATO-Werte für 2025 sind Schätzungen; für 2026 ist kein Vergleich möglich, weil SIPRI noch keine Daten hat.")
     d = aa.assign(diff=aa.sipri_2025 - aa.nato_2025).sort_values("diff")
     fig = go.Figure(go.Bar(
         y=d.land, x=d["diff"], orientation="h", text=[fde(x, 2) for x in d["diff"]], textposition="outside",
@@ -394,6 +425,7 @@ with tabs[4]:
         hovertemplate="%{y}<br>NATO: %{customdata[0]:.2f} %<br>SIPRI: %{customdata[1]:.2f} %<extra></extra>"))
     fig.update_layout(height=760, margin=dict(l=10, r=40, t=10, b=10), separators=",.")
     st.plotly_chart(fig, width="stretch")
+    quellen(Q_NATO_T3, Q_SIPRI)
 
 # ---------------------------------------------------------------- Langfristvergleich
 with tabs[5]:
