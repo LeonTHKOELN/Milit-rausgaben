@@ -361,6 +361,29 @@ with tabs[4]:
                       annotation_position="bottom right")
         fig.add_hline(y=ZIEL_ALT, line_dash="dot", line_color="#777")
         st.plotly_chart(layout(fig, y_titel="% des BIP", schaetzung=False), width="stretch")
+    st.markdown("**Militärausgaben in % der gesamten Staatsausgaben, 1991–2025**")
+    sg = s.dropna(subset=["anteil_staat_pct"])
+    SG = sg.set_index("jahr").anteil_staat_pct
+    st.caption(f"2025 sind es {fde(SG.loc[2025], 2)} %, nach {fde(SG.loc[2014], 2)} % in 2014 und dem Tiefstwert von "
+               f"{fde(SG.min(), 2)} % in {int(SG.idxmin())}. Damit liegt der Anteil wieder über dem Wert von 1991 "
+               f"({fde(SG.loc[1991], 2)} %), dem ersten Jahr der Reihe.")
+    fig = go.Figure()
+    fig.add_scatter(x=sg.jahr, y=sg.anteil_staat_pct, name="Anteil an den Staatsausgaben",
+                    line=dict(color=FARBEN["ausruestung"], width=3), hovertemplate="%{y:.2f} %")
+    fig.add_scatter(x=sg.jahr, y=sg.anteil_bip_pct, name="Anteil am BIP (zum Vergleich)",
+                    line=dict(color=GRAU, width=2), hovertemplate="%{y:.2f} %")
+    st.plotly_chart(layout(fig, 400, "%", schaetzung=False), width="stretch")
+    with st.expander("Was zählt zu den Staatsausgaben?"):
+        st.markdown(
+            "- **Staatsausgaben:** Die Ausgaben des Gesamtstaats laut IWF (World Economic Outlook), also von Bund, Ländern "
+            "und Gemeinden. Es ist **nicht** der Bundeshaushalt allein.\n"
+            "- **Militärausgaben:** In der Abgrenzung von SIPRI, nicht der NATO. Die Werte passen deshalb zur SIPRI-Reihe "
+            "auf diesem Reiter, nicht direkt zu den NATO-Zahlen der anderen Reiter.\n"
+            "- **Zeitraum:** Für Deutschland weist SIPRI den Anteil erst ab 1991 aus.\n\n"
+            "Der Anteil am Bundeshaushalt wäre deutlich höher, weil Verteidigung fast nur vom Bund finanziert wird, "
+            "die Staatsausgaben aber auch Länder und Gemeinden umfassen."
+        )
+
     st.info("SIPRI führt die DDR gesondert. Die Werte vor 1990 stehen deshalb vermutlich für Westdeutschland; das ist eine "
             "Lesart, keine ausdrückliche Angabe im Datensatz.")
 

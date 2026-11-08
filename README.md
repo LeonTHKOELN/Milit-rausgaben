@@ -9,7 +9,7 @@ Management und Unternehmenssteuerung (TH Köln, WS 26/27).
 - **BIP-Anteil:** Deutschland im Vergleich, Trend je Land für alle 31 Alliierten
 - **Kategorien & Personal:** Ausrüstung, Personal, Infrastruktur, Sonstiges (real und in %), Index, Militärpersonal
 - **Abgleich SIPRI:** NATO- und SIPRI-Werte 2014–2025 im Vergleich
-- **Langfristvergleich:** SIPRI-Reihe 1953–2025
+- **Langfristvergleich:** SIPRI-Reihe 1953–2025, Anteil an den Staatsausgaben ab 1991
 - **Einordnung, Daten & Quellen:** Tabellen, CSV-Download, Quellenliste
 
 ## Lokal starten
