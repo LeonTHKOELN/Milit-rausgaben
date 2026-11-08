@@ -53,9 +53,12 @@ def lade_daten():
     t = pd.read_csv(DATA / "bip_trend.csv")
     s = pd.read_csv(DATA / "sipri_de.csv").dropna(subset=["anteil_bip_pct"])
     aa = pd.read_csv(DATA / "abgleich_alliierte.csv")
+    bh = pd.read_csv(DATA / "bundeshaushalt.csv")
+    bh["anteil_epl14"] = bh.epl14_mrd / bh.bund_mrd * 100
+    bh["anteil_mit_sv"] = (bh.epl14_mrd + bh.sv_bw_mrd) / bh.bund_mrd * 100
     for k in KATEGORIEN:
         g[f"{k}_real"] = g["real_eur"] * g[k] / 1e5  # Mrd. €, Preise 2021
-    return g, v, a, t, s, aa
+    return g, v, a, t, s, aa, bh
 
 
 def layout(fig: go.Figure, hoehe: int = 380, y_titel: str | None = None, schaetzung: bool = True) -> go.Figure:
@@ -72,7 +75,7 @@ def layout(fig: go.Figure, hoehe: int = 380, y_titel: str | None = None, schaetz
     return fig
 
 
-g, v, a, t, s, aa = lade_daten()
+g, v, a, t, s, aa, bh = lade_daten()
 J = g.set_index("jahr")
 S = s.set_index("jahr")
 a14, a23, a24, a26 = J.loc[2014], J.loc[2023], J.loc[2024], J.loc[2026]
@@ -104,7 +107,7 @@ k[3].metric("Ausrüstungsquote, 2026e", f"{fde(a26.ausruestung)} %",
 k[4].metric("Militärpersonal, 2026e", f"{fde(a26.personal_tsd)} Tsd.",
             f"{fde((a26.personal_tsd / a14.personal_tsd - 1) * 100)} % ggü. 2014")
 
-tabs = st.tabs(["Entwicklung", "BIP-Anteil", "Kategorien & Personal", "Abgleich SIPRI",
+tabs = st.tabs(["Entwicklung", "BIP-Anteil", "Kategorien & Personal", "Bundeshaushalt", "Abgleich SIPRI",
                 "Langfristvergleich", "Einordnung", "Daten & Quellen"])
 
 # ---------------------------------------------------------------- Entwicklung
@@ -270,8 +273,67 @@ with tabs[2]:
             hovertemplate="%{y:.1f} Tsd.<extra></extra>"))
         st.plotly_chart(layout(fig, 420, "Tsd.", schaetzung=False).update_xaxes(dtick=2), width="stretch")
 
-# ---------------------------------------------------------------- Abgleich SIPRI
+# ---------------------------------------------------------------- Bundeshaushalt
 with tabs[3]:
+    B = bh.set_index("jahr")
+    st.subheader("Der Verteidigungsetat wächst schneller als der Bundeshaushalt")
+    st.caption(
+        f"Der Anteil des Einzelplans 14 am Bundeshaushalt steigt von {fde(B.loc[2014, 'anteil_epl14'])} % (2014) auf "
+        f"{fde(B.loc[2026, 'anteil_epl14'])} % (2026). Mit dem Sondervermögen Bundeswehr entsprechen die Ausgaben 2026 "
+        f"{fde(B.loc[2026, 'anteil_mit_sv'])} % des Bundeshaushalts, also rund einem Fünftel.")
+    k1, k2, k3 = st.columns(3)
+    k1.metric("Einzelplan 14, 2026 (Soll)", f"{fde(B.loc[2026, 'epl14_mrd'])} Mrd. €",
+              f"2014: {fde(B.loc[2014, 'epl14_mrd'])} Mrd. €", delta_color="off")
+    k2.metric("Bundeshaushalt, 2026 (Soll)", f"{fde(B.loc[2026, 'bund_mrd'])} Mrd. €",
+              f"2014: {fde(B.loc[2014, 'bund_mrd'])} Mrd. €", delta_color="off")
+    k3.metric("Anteil Einzelplan 14, 2026", f"{fde(B.loc[2026, 'anteil_epl14'])} %",
+              f"{fde(B.loc[2026, 'anteil_epl14'] - B.loc[2014, 'anteil_epl14'])} Pp. ggü. 2014")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("**Anteil am Bundeshaushalt, in %**")
+        st.caption("Die gestrichelte Linie zählt das Sondervermögen Bundeswehr hinzu. Es liegt außerhalb des Bundeshaushalts, "
+                   "der Wert ist deshalb ein Verhältnis und kein echter Anteil.")
+        fig = go.Figure()
+        fig.add_scatter(x=bh.jahr, y=bh.anteil_epl14, name="Einzelplan 14", line=dict(color=FARBEN["ausruestung"], width=3),
+                        customdata=bh.basis, hovertemplate="%{y:.1f} % (%{customdata})")
+        fig.add_scatter(x=bh.jahr, y=bh.anteil_mit_sv, name="Einzelplan 14 + Sondervermögen",
+                        line=dict(color=FARBEN["ausruestung"], width=2, dash="dash"), hovertemplate="%{y:.1f} %")
+        fig.add_vrect(x0=2019.5, x1=2021.5, fillcolor="rgba(47,111,181,0.08)", line_width=0,
+                      annotation_text="Corona-Haushalte", annotation_position="top left")
+        st.plotly_chart(layout(fig, 400, "%", schaetzung=False).update_xaxes(dtick=2), width="stretch")
+    with c2:
+        st.markdown("**Einzelplan 14, Sondervermögen und Bundeshaushalt, in Mrd. €**")
+        st.caption("Balken: Verteidigung (linke Achse). Linie: gesamter Bundeshaushalt (rechte Achse).")
+        fig = go.Figure()
+        fig.add_bar(x=bh.jahr, y=bh.epl14_mrd, name="Einzelplan 14", marker_color=FARBEN["ausruestung"],
+                    hovertemplate="%{y:.1f} Mrd. €")
+        fig.add_bar(x=bh.jahr, y=bh.sv_bw_mrd, name="Sondervermögen Bundeswehr", marker_color=FARBEN["sonstige"],
+                    hovertemplate="%{y:.1f} Mrd. €")
+        fig.add_scatter(x=bh.jahr, y=bh.bund_mrd, name="Bundeshaushalt", yaxis="y2",
+                        line=dict(color="#222", width=2), hovertemplate="%{y:.1f} Mrd. €")
+        fig.update_layout(barmode="stack", yaxis2=dict(overlaying="y", side="right", rangemode="tozero", title="Bundeshaushalt"))
+        st.plotly_chart(layout(fig, 400, "Verteidigung, Mrd. €", schaetzung=False).update_xaxes(dtick=2), width="stretch")
+    with st.expander("Wie sind die Zahlen zu lesen?"):
+        st.markdown(
+            "- **Einzelplan 14:** Der Haushalt des Bundesministeriums der Verteidigung, einschließlich Personal und Versorgung. "
+            "Er ist nicht dasselbe wie die NATO-Kernausgaben der anderen Reiter: Die NATO zählt zum Beispiel auch das "
+            "Sondervermögen und Ausgaben anderer Ressorts mit.\n"
+            "- **Soll und Ist:** 2014–2019 und 2026 sind Soll-Werte laut Haushaltsgesetz, 2020–2025 Ist-Werte laut "
+            "Haushaltsrechnung. Für 2020–2024 eignen sich Ist-Werte besser, weil Nachtragshaushalte die Soll-Werte stark "
+            "verändert haben. Bei einem Soll-Ist-Wechsel sind kleine Sprünge möglich.\n"
+            "- **Corona-Jahre:** 2020 und 2021 sinkt der Anteil, weil der Bundeshaushalt durch die Pandemie stark wuchs, "
+            "nicht weil weniger für Verteidigung ausgegeben wurde.\n"
+            "- **Sondervermögen Bundeswehr:** Ein kreditfinanzierter Topf außerhalb des Bundeshaushalts, seit 2022. "
+            "Deshalb steht er in der Grafik getrennt.\n"
+            "- **2015:** Der Wert für den Einzelplan 14 ist nicht aus einer Primärquelle geprüft."
+        )
+    tb = bh[["jahr", "basis", "epl14_mrd", "sv_bw_mrd", "bund_mrd", "anteil_epl14", "anteil_mit_sv", "quelle"]].round(1)
+    tb.columns = ["Jahr", "Basis", "Einzelplan 14, Mrd. €", "Sondervermögen, Mrd. €", "Bundeshaushalt, Mrd. €",
+                  "Anteil Epl. 14, %", "Epl. 14 + SV im Verhältnis, %", "Quelle"]
+    st.dataframe(tb, hide_index=True, width="stretch")
+
+# ---------------------------------------------------------------- Abgleich SIPRI
+with tabs[4]:
     st.subheader("SIPRI bestätigt die Größenordnung, verlegt den Sprung aber stärker in das Jahr 2025")
     ab = g[g.jahr <= 2025][["jahr", "nominal_eur", "anteil_bip", "real_aend", "real_eur"]].merge(
         s[["jahr", "lokal_eur", "anteil_bip_pct", "konstant_2024_usd"]], on="jahr")
@@ -334,7 +396,7 @@ with tabs[3]:
     st.plotly_chart(fig, width="stretch")
 
 # ---------------------------------------------------------------- Langfristvergleich
-with tabs[4]:
+with tabs[5]:
     st.subheader("Im Langfristvergleich: real auf Rekordniveau, beim BIP-Anteil noch unter dem Kalten Krieg")
     kw = s[s.jahr <= 1990]
     c1, c2 = st.columns(2)
@@ -388,7 +450,7 @@ with tabs[4]:
             "Lesart, keine ausdrückliche Angabe im Datensatz.")
 
 # ---------------------------------------------------------------- Einordnung
-with tabs[5]:
+with tabs[6]:
     st.subheader("Was das für die Frage nach der Dauerhaftigkeit heißt")
     st.markdown(
         "- **Für strukturellen Wandel spricht:** Der Anstieg betrifft nicht nur das Niveau, sondern auch die Zusammensetzung, "
@@ -409,7 +471,7 @@ with tabs[5]:
     )
 
 # ---------------------------------------------------------------- Daten & Quellen
-with tabs[6]:
+with tabs[7]:
     st.subheader("Alle Werte für Deutschland")
     tab = g[["jahr", "nominal_eur", "real_eur", "real_usd", "anteil_bip", "real_aend", "pro_kopf_usd", "personal_tsd",
              "ausruestung", "personal", "infrastruktur", "sonstige"]].copy()
@@ -434,6 +496,15 @@ with tabs[6]:
         "- [SIPRI: Datensatz 1949–2025, Version 1.2 (Excel)](https://www.sipri.org/sites/default/files/SIPRI-Milex-data-1949-2025_v1.2.xlsx). "
         "Grundlage für den Abgleich und die Langfristreihe.\n"
         "- [SIPRI: Sources and methods](https://www.sipri.org/databases/milex/sources-and-methods). Definition und Preisbereinigung.\n"
+        "- [Wissenschaftliche Dienste des Bundestages: Entwicklung der Verteidigungsausgaben des Bundes, WD 4 - 30000 - 0023/26 (PDF)](https://www.bundestag.de/resource/blob/1223168/WD-4-0003-0023-26_verteidigungsausgaben.pdf). "
+        "Einzelplan 14 und Sondervermögen, Soll und Ist 2020–2026.\n"
+        "- [Bundestag: Bundeshaushalt im Vergleich, Ist-Ausgaben 2010–2024 (PDF)](https://www.bundestag.de/resource/blob/272958/bf3d27099d658b6df3b22fe2633f0b58/Kapitel_17_01_Bundeshaushalt_und_Haushalt_des_Bundestages__Einzelplan_02__im_Vergleich-pdf.pdf).\n"
+        "- [BMF: Jahresabschluss Bundeshaushalt 2025 (PDF)](https://table.media/assets/berlin/26-02-11_jahresabschluss_bundeshaushalt_2025.pdf). Ist-Ausgaben 2025.\n"
+        "- [ESUT: Haushaltsgesetz 2026 tritt zum 1. Januar in Kraft](https://esut.de/en/2025/12/meldungen/66604/haushaltsgesetz-2026-tritt-zum-1-januar-in-kraft/). Bundeshaushalt und Einzelplan 14 2026.\n"
+        "- [bpb: Der Verteidigungshaushalt (2017)](https://www.bpb.de/themen/militaer/deutsche-verteidigungspolitik/249290/der-verteidigungshaushalt-trendwende-bei-den-verteidigungsausgaben/). Soll 2016 und 2017.\n"
+        "- [vergabeblog: Bundeshaushalt 2019](https://vergabeblog.de/2018-11-09/bundeshaushalt-2019-im-haushaltsausschuss-beschlossen/), "
+        "[Haushalt 2014](https://vergabeblog.de/2014-06-06/bund-2965-milliarden-euro-ausgaben-eingeplant/), "
+        "[Bundestag: Haushalt 2015](https://www.bundestag.de/webarchiv/textarchiv/2014/kw46_pa_haushalt-340794). Soll-Werte 2014–2019.\n"
         "- [Global Policy: Spend First, Define Later (PDF)](https://www.globalpolicyjournal.com/sites/default/files/pdf/Spend%20First%2C%20Define%20Later%2C%20NATO%E2%80%99s%20Accountability%20Gap.pdf). "
         "Selbstmeldung und fehlende unabhängige Prüfung; Einschätzung der Autorin.\n"
         "- [IW Köln: Gerade so genug für die NATO? (April 2024)](https://www.iwkoeln.de/studien/klaus-heiner-roehl-gerade-so-genug-fuer-die-nato.html). "

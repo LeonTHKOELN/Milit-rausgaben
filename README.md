@@ -8,6 +8,7 @@ Management und Unternehmenssteuerung (TH Köln, WS 26/27).
 - **Entwicklung:** Ausgaben nominal und real, reale Veränderung zum Vorjahr
 - **BIP-Anteil:** Deutschland im Vergleich, Trend je Land für alle 31 Alliierten
 - **Kategorien & Personal:** Ausrüstung, Personal, Infrastruktur, Sonstiges (real und in %), Index, Militärpersonal
+- **Bundeshaushalt:** Einzelplan 14 und Sondervermögen im Verhältnis zum Bundeshaushalt 2014–2026
 - **Abgleich SIPRI:** NATO- und SIPRI-Werte 2014–2025 im Vergleich
 - **Langfristvergleich:** SIPRI-Reihe 1953–2025, Anteil an den Staatsausgaben ab 1991
 - **Einordnung, Daten & Quellen:** Tabellen, CSV-Download, Quellenliste
@@ -34,6 +35,7 @@ Branch `main` und die Datei `app.py` angeben.
 | `bip_trend.csv` | BIP-Anteil je Land 2014–2026e | NATO-Bericht 2026, Tabelle 3 |
 | `sipri_de.csv` | Deutschland 1949–2025 | SIPRI Milex v1.2 (April 2026) |
 | `abgleich_alliierte.csv` | BIP-Anteil 2025, NATO und SIPRI | NATO und SIPRI |
+| `bundeshaushalt.csv` | Einzelplan 14, Sondervermögen, Bundeshaushalt 2014–2026 | Bundeshaushalt, je Zeile angegeben |
 
 Die NATO-Werte wurden aus den Tabellen des Berichts übernommen. Werte für 2025 und 2026 sind NATO-Schätzungen.
 
