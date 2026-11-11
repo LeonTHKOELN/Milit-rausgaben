@@ -6,7 +6,7 @@ Management und Unternehmenssteuerung (TH Köln, WS 26/27).
 ## Inhalt
 
 - **Entwicklung:** Ausgaben nominal und real, reale Veränderung zum Vorjahr
-- **BIP-Anteil:** Deutschland im Vergleich, Trend je Land für alle 31 Alliierten
+- **BIP-Anteil:** Deutschland im Vergleich mit frei wählbaren Ländern (Länderfilter, Tabelle mit Rang und Veränderung), Trend je Land für alle 31 Alliierten
 - **Kategorien & Personal:** Ausrüstung, Personal, Infrastruktur, Sonstiges (real und in %), Index, Militärpersonal
 - **Bundeshaushalt:** Einzelplan 14 und Sondervermögen im Verhältnis zum Bundeshaushalt 2014–2026
 - **Abgleich SIPRI:** NATO- und SIPRI-Werte 2014–2025 im Vergleich

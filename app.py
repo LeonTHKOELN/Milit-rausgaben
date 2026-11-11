@@ -163,16 +163,40 @@ with tabs[1]:
     luecke_usd = (ZIEL_KERN / 100 * a26.bip_real_usd - a26.real_usd) / 1e3
     st.caption(f"Zum Ziel von {fde(ZIEL_KERN)} % bis 2035 fehlen {fde(luecke_pp, 2)} Prozentpunkte; beim BIP von 2026 "
                f"wären das rund {fde(luecke_usd, 0)} Mrd. US-$ (Preise von 2021). Alle Werte sind Kernausgaben ohne den 1,5-%-Topf.")
+    alle_laender = sorted(l for l in t.land.unique() if l != "Deutschland")
+    f1, f2 = st.columns([4, 1])
+    vergleichsland = f1.multiselect("Länder zum Vergleich (Deutschland wird immer angezeigt)", alle_laender,
+                                    default=["Frankreich", "Vereinigtes Königreich", "USA", "Polen"], key="laenderfilter")
+    mit_schnitt = f2.checkbox("NATO Europa/Kanada", value=True, help="Durchschnitt der europäischen Alliierten und Kanadas")
+    palette = ["#1f77b4", "#2ca02c", "#9467bd", "#ff7f0e", "#17becf", "#8c564b", "#e377c2", "#bcbd22", "#7f7f7f", "#393b79"]
     fig = go.Figure()
-    reihen = [("frankreich", "Frankreich", GRAU), ("vereinigtes_koenigreich", "UK", GRAU), ("usa", "USA", GRAU),
-              ("polen", "Polen", GRAU), ("nato_eu_kanada", "NATO Europa/Kanada", FARBEN["personal"])]
-    for key, name, col in reihen:
-        fig.add_scatter(x=v.jahr, y=v[key], name=name, line=dict(color=col, width=1.5))
+    for i, land in enumerate(vergleichsland):
+        d = t[t.land == land]
+        fig.add_scatter(x=d.jahr, y=d.anteil, name=land, line=dict(color=palette[i % len(palette)], width=1.8))
+    if mit_schnitt:
+        fig.add_scatter(x=v.jahr, y=v.nato_eu_kanada, name="NATO Europa/Kanada", line=dict(color=GRAU, width=2, dash="dash"))
     fig.add_scatter(x=g.jahr, y=g.anteil_bip, name="Deutschland", line=dict(color=FARBEN["ausruestung"], width=4))
     fig.add_hline(y=ZIEL_KERN, line_dash="dash", line_color="#777", annotation_text=f"Hague-Ziel 2035: {fde(ZIEL_KERN)} %")
     fig.add_hline(y=ZIEL_ALT, line_dash="dot", line_color="#777", annotation_text=f"Bisheriges Ziel: {fde(ZIEL_ALT, 0)} %")
     fig.update_traces(hovertemplate="%{y:.2f} %")
     st.plotly_chart(layout(fig, 430, "% des BIP"), width="stretch")
+
+    rang26 = a.sort_values("anteil_bip_2026", ascending=False).reset_index(drop=True)
+    rang26["rang"] = rang26.index + 1
+    tabelle = rang26[rang26.land.isin(["Deutschland"] + vergleichsland)].copy()
+    tabelle["diff"] = tabelle.anteil_bip_2026 - tabelle.anteil_bip_2014
+    tabelle = tabelle.sort_values("anteil_bip_2026", ascending=False)
+    st.dataframe(
+        pd.DataFrame({
+            "Land": tabelle.land,
+            "Rang 2026e": tabelle.rang.astype(str) + f" von {len(a)}",
+            "% BIP 2014": tabelle.anteil_bip_2014.map(lambda x: fde(x, 2)),
+            "% BIP 2026e": tabelle.anteil_bip_2026.map(lambda x: fde(x, 2)),
+            "Veränderung, Pp.": tabelle["diff"].map(lambda x: ("+" if x > 0 else "") + fde(x, 2)),
+            "Real 2014–2026e, %": tabelle.real_aend_pct.map(lambda x: ("+" if x > 0 else "") + fde(x, 0)),
+        }),
+        hide_index=True, width="stretch")
+    quellen(Q_NATO_T3, "Rang und reale Veränderung: NATO-Bericht 2026, Tabelle 4 (US-$, Preise von 2021).")
 
     st.markdown("**BIP-Anteil je Land, 2014–2026e**")
     st.caption(f"Sortiert nach dem Wert für 2026e, alle Länder auf derselben Skala. Deutschland steht 2026 auf Platz "
