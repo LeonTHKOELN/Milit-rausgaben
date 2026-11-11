@@ -340,6 +340,73 @@ with tabs[3]:
             "Deshalb steht er in der Grafik getrennt.\n"
             "- **2015:** Der Wert für den Einzelplan 14 ist nicht aus einer Primärquelle geprüft."
         )
+    # ---- Gap zwischen NATO-Meldung und Verteidigungshaushalt
+    gp = bh.merge(g[["jahr", "nominal_eur"]], on="jahr")
+    gp["nato_mrd"] = gp.nominal_eur / 1e3
+    gp["gap"] = gp.nato_mrd - gp.epl14_mrd
+    gp["rest"] = gp.gap - gp.sv_bw_mrd
+    gp["gap_pct"] = gp.gap / gp.nato_mrd * 100
+    gp["rest_pct"] = gp.rest / gp.nato_mrd * 100
+    G = gp.set_index("jahr")
+    st.subheader("Der Abstand zwischen NATO-Meldung und Verteidigungshaushalt ist stark gewachsen")
+    st.caption(
+        f"2014 lag die NATO-Meldung {fde(G.loc[2014, 'gap'])} Mrd. € über dem Einzelplan 14, das waren "
+        f"{fde(G.loc[2014, 'gap_pct'], 0)} % der gemeldeten Ausgaben. 2025 sind es {fde(G.loc[2025, 'gap'])} Mrd. € "
+        f"({fde(G.loc[2025, 'gap_pct'], 0)} %), 2026 laut Plan {fde(G.loc[2026, 'gap'])} Mrd. € ({fde(G.loc[2026, 'gap_pct'], 0)} %). "
+        f"Auch ohne Sondervermögen wächst der Rest von {fde(G.loc[2014, 'rest'])} auf {fde(G.loc[2025, 'rest'])} Mrd. € (2025).")
+    k1, k2, k3 = st.columns(3)
+    k1.metric("Abstand 2025", f"{fde(G.loc[2025, 'gap'])} Mrd. €", f"2014: {fde(G.loc[2014, 'gap'])} Mrd. €", delta_color="off")
+    k2.metric("Anteil außerhalb Epl. 14, 2025", f"{fde(G.loc[2025, 'gap_pct'], 0)} %",
+              f"{fde(G.loc[2025, 'gap_pct'] - G.loc[2014, 'gap_pct'], 0)} Pp. ggü. 2014")
+    k3.metric("Rest ohne Sondervermögen, 2025", f"{fde(G.loc[2025, 'rest'])} Mrd. €",
+              f"2014: {fde(G.loc[2014, 'rest'])} Mrd. €", delta_color="off")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("**Woraus die NATO-Meldung besteht, in Mrd. € (nominal)**")
+        st.caption("Gestapelt: Einzelplan 14, Sondervermögen Bundeswehr und der Rest bis zur NATO-Meldung. "
+                   "Die Zahl über dem Balken ist die NATO-Meldung.")
+        fig = go.Figure()
+        fig.add_bar(x=gp.jahr, y=gp.epl14_mrd, name="Einzelplan 14", marker_color=FARBEN["ausruestung"],
+                    text=[fde(x) for x in gp.epl14_mrd], textposition="inside", hovertemplate="%{y:.1f} Mrd. €")
+        fig.add_bar(x=gp.jahr, y=gp.sv_bw_mrd, name="Sondervermögen Bundeswehr", marker_color=FARBEN["sonstige"],
+                    text=[fde(x) if x > 0 else "" for x in gp.sv_bw_mrd], textposition="inside", hovertemplate="%{y:.1f} Mrd. €")
+        fig.add_bar(x=gp.jahr, y=gp.rest, name="Rest (andere Ressorts u. a.)", marker_color=GRAU,
+                    text=[fde(x) for x in gp.rest], textposition="inside", hovertemplate="%{y:.1f} Mrd. €")
+        fig.add_scatter(x=gp.jahr, y=gp.nato_mrd, mode="text", text=[fde(x) for x in gp.nato_mrd], textposition="top center",
+                        name="NATO-Meldung", showlegend=False, textfont=dict(size=11, color="#222"), hovertemplate="NATO: %{y:.1f} Mrd. €")
+        fig.update_layout(barmode="stack", uniformtext=dict(minsize=8, mode="hide"))
+        st.plotly_chart(layout(fig, 460, "Mrd. €").update_yaxes(range=[0, gp.nato_mrd.max() * 1.12]), width="stretch")
+        quellen(Q_NATO_T1, "[Wissenschaftliche Dienste des Bundestages: WD 4 - 30000 - 0023/26 (PDF)]"
+                "(https://www.bundestag.de/resource/blob/1223168/WD-4-0003-0023-26_verteidigungsausgaben.pdf)",
+                "Einzelplan 14 je Jahr: siehe Tabelle unten; der Rest ist eigene Berechnung (NATO minus Epl. 14 minus Sondervermögen).")
+    with c2:
+        st.markdown("**Anteil der NATO-Meldung außerhalb des Einzelplans 14, in %**")
+        st.caption("Durchgezogen: alles außerhalb des Einzelplans 14. Gestrichelt: ohne das Sondervermögen, also nur der Rest.")
+        fig = go.Figure()
+        fig.add_scatter(x=gp.jahr, y=gp.gap_pct, name="Außerhalb Epl. 14", mode="lines+markers+text",
+                        text=[fde(x, 0) for x in gp.gap_pct], textposition="top center",
+                        line=dict(color=FARBEN["ausruestung"], width=3), hovertemplate="%{y:.1f} %")
+        fig.add_scatter(x=gp.jahr, y=gp.rest_pct, name="Davon Rest ohne Sondervermögen", mode="lines+markers+text",
+                        text=[fde(x, 0) for x in gp.rest_pct], textposition="bottom center",
+                        line=dict(color=GRAU, width=2, dash="dash"), hovertemplate="%{y:.1f} %")
+        st.plotly_chart(layout(fig, 460, "% der NATO-Meldung").update_yaxes(range=[0, gp.gap_pct.max() * 1.15]), width="stretch")
+        quellen(Q_NATO_T1, "Eigene Berechnung aus NATO-Meldung, Einzelplan 14 und Sondervermögen.")
+    with st.expander("Was steckt im Abstand und wie belastbar ist er?"):
+        st.markdown(
+            "- **Sondervermögen Bundeswehr:** Seit 2023 der größte Einzelposten außerhalb des Einzelplans 14.\n"
+            "- **Rest:** Verteidigungsrelevante Ausgaben anderer Ressorts, etwa die Ukraine-Hilfe (Ertüchtigung im Einzelplan 60), "
+            "Versorgungsleistungen oder Beiträge. Laut IW Köln entfielen 2024 rund 7,5 Mrd. € auf Ukraine-Hilfe und rund 7 Mrd. € auf "
+            "„andere verteidigungsrelevante Ausgaben“, deren Herkunft nicht erkennbar ist. Die Bundesregierung schlüsselt den Rest "
+            "nicht vollständig auf.\n"
+            "- **Plausibilität:** Ein Fachartikel nennt Ausgaben außerhalb des Wehretats von 1,6 Mrd. € (2014) und rund 18,85 Mrd. € "
+            "(2024). Die Werte hier liegen in derselben Größenordnung, sind aber nicht identisch abgegrenzt.\n"
+            "- **Grenzen:** Die NATO-Werte für 2025 und 2026 sind Schätzungen. Beim Einzelplan 14 sind 2014–2019 und 2026 Soll-, "
+            "2020–2025 Ist-Werte. Der Abstand ist deshalb eine Näherung, kein amtlicher Wert.\n\n"
+            "Quellen: [IW Köln: Gerade so genug für die NATO? (April 2024)]"
+            "(https://www.iwkoeln.de/studien/klaus-heiner-roehl-gerade-so-genug-fuer-die-nato.html), "
+            "[cpm Defence Network](https://defence-network.com/trickst-bundesregierung-verteidigungsausgaben/)"
+        )
+
     tb = bh[["jahr", "basis", "epl14_mrd", "sv_bw_mrd", "bund_mrd", "anteil_epl14", "anteil_mit_sv", "quelle"]].round(1)
     tb.columns = ["Jahr", "Basis", "Einzelplan 14, Mrd. €", "Sondervermögen, Mrd. €", "Bundeshaushalt, Mrd. €",
                   "Anteil Epl. 14, %", "Epl. 14 + SV im Verhältnis, %", "Quelle"]
