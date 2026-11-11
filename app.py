@@ -347,6 +347,7 @@ with tabs[3]:
     gp["rest"] = gp.gap - gp.sv_bw_mrd
     gp["gap_pct"] = gp.gap / gp.nato_mrd * 100
     gp["rest_pct"] = gp.rest / gp.nato_mrd * 100
+    gp["epl14_pct"] = gp.epl14_mrd / gp.nato_mrd * 100
     G = gp.set_index("jahr")
     st.subheader("Der Abstand zwischen NATO-Meldung und Verteidigungshaushalt ist stark gewachsen")
     st.caption(
@@ -406,6 +407,14 @@ with tabs[3]:
             "(https://www.iwkoeln.de/studien/klaus-heiner-roehl-gerade-so-genug-fuer-die-nato.html), "
             "[cpm Defence Network](https://defence-network.com/trickst-bundesregierung-verteidigungsausgaben/)"
         )
+
+
+    st.markdown("**Abstand je Jahr**")
+    tg = gp[["jahr", "nato_mrd", "epl14_mrd", "epl14_pct", "sv_bw_mrd", "rest", "gap_pct"]].round(1)
+    tg["jahr"] = tg.jahr.map(jahr_label)
+    tg.columns = ["Jahr", "NATO-Meldung, Mrd. €", "Einzelplan 14, Mrd. €", "Einzelplan 14 in % der NATO-Meldung",
+                  "Sondervermögen, Mrd. €", "Rest, Mrd. €", "Außerhalb Epl. 14, %"]
+    st.dataframe(tg, hide_index=True, width="stretch")
 
     tb = bh[["jahr", "basis", "epl14_mrd", "sv_bw_mrd", "bund_mrd", "anteil_epl14", "anteil_mit_sv", "quelle"]].round(1)
     tb.columns = ["Jahr", "Basis", "Einzelplan 14, Mrd. €", "Sondervermögen, Mrd. €", "Bundeshaushalt, Mrd. €",
